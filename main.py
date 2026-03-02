@@ -52,6 +52,9 @@ class VehicleHealthSystem:
 
 system = VehicleHealthSystem()
 
+@app.get("/")
+def home():
+    return {"message": "Vehicle Health API Running"}
 
 @app.get("/vehicle")
 def get_vehicle_data():
