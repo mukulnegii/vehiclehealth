@@ -49,6 +49,39 @@ class VehicleHealthSystem:
         
         return alerts
 
+    # ✅ Added RUL logic
+    def calculate_rul(self, data, health):
+        base_life_days = 365
+
+        # Overall remaining life based on health
+        remaining_life = int((health / 100) * base_life_days)
+
+        # Engine RUL influenced by load + temp + health
+        engine_factor = (100 - data["engine_load"]) / 100
+        temp_penalty = max(0, data["engine_temp"] - 90) / 100
+        engine_rul = int(base_life_days * engine_factor * (health / 100) * (1 - temp_penalty))
+
+        # Brake RUL influenced by brake load + health
+        brake_factor = (100 - data["brake_load"]) / 100
+        brake_rul = int(base_life_days * brake_factor * (health / 100))
+
+        # Gear RUL influenced by gear stress + health
+        gear_factor = (100 - data["gear_stress"]) / 100
+        gear_rul = int(base_life_days * gear_factor * (health / 100))
+
+        # Battery RUL influenced by battery health + battery load
+        battery_factor = data["battery_health"] / 100
+        battery_load_penalty = data["battery_load"] / 100
+        battery_rul = int(base_life_days * battery_factor * (1 - battery_load_penalty))
+
+        return (
+            max(remaining_life, 0),
+            max(engine_rul, 0),
+            max(brake_rul, 0),
+            max(gear_rul, 0),
+            max(battery_rul, 0)
+        )
+
 
 system = VehicleHealthSystem()
 
@@ -62,9 +95,17 @@ def get_vehicle_data():
     health = system.calculate_health(data)
     alerts = system.generate_alerts(data, health)
 
+    # ✅ Added RUL calculation
+    remaining_life, engine_rul, brake_rul, gear_rul, battery_rul = system.calculate_rul(data, health)
+
     return {
-        "vehicle_id": "Fortuner 0001",   # <-- constant value
+        "vehicle_id": "Fortuner 0001",
         "vehicle_health": health,
+        "remaining_life_days": remaining_life,
+        "engine_rul_days": engine_rul,
+        "brake_rul_days": brake_rul,
+        "gear_rul_days": gear_rul,
+        "battery_rul_days": battery_rul,
         "engine_load": data["engine_load"],
         "brake_load": data["brake_load"],
         "gear_stress": data["gear_stress"],
