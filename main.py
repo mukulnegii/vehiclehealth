@@ -63,6 +63,7 @@ def get_vehicle_data():
     alerts = system.generate_alerts(data, health)
 
     return {
+        "vehicle_id": "Fortuner 0001",   # <-- constant value
         "vehicle_health": health,
         "engine_load": data["engine_load"],
         "brake_load": data["brake_load"],
