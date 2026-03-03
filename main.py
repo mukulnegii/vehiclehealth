@@ -4,72 +4,94 @@ import random
 app = FastAPI()
 
 class VehicleHealthSystem:
-    
-    def generate_sensor_data(self):
+
+    def __init__(self):
+        self.vehicle_id = "Fortuner 0001"
+        self.current_health = 69
+        self.phase = "increasing"
+
+    # -----------------------------
+    # Health Simulation
+    # -----------------------------
+    def update_health(self):
+
+        if self.phase == "increasing":
+            self.current_health += random.randint(1, 4)
+
+            if self.current_health >= 80:
+                self.current_health = 80
+                self.phase = "decreasing"
+
+        else:  # decreasing phase
+            self.current_health -= random.randint(1, 3)
+
+            if self.current_health <= 55:
+                self.current_health = 55  # minimum limit
+
+        return round(self.current_health, 2)
+
+    # -----------------------------
+    # Sensor Generation Based on Health
+    # -----------------------------
+    def generate_sensor_data(self, health):
+
+        engine_load = int(100 - health + random.randint(5, 12))
+        brake_load = int(100 - health + random.randint(5, 10))
+        gear_stress = int(100 - health + random.randint(5, 8))
+        battery_load = int(100 - health + random.randint(5, 10))
+        engine_temp = int(75 + (100 - health) + random.randint(0, 5))
+        battery_health = int(health + random.randint(5, 10))
+
         return {
-            "engine_load": random.randint(20, 100),
-            "brake_load": random.randint(10, 100),
-            "gear_stress": random.randint(10, 100),
-            "battery_load": random.randint(20, 100),
-            "battery_health": random.randint(50, 100),
-            "engine_temp": random.randint(70, 130)
+            "engine_load": min(engine_load, 95),
+            "brake_load": min(brake_load, 95),
+            "gear_stress": min(gear_stress, 95),
+            "battery_load": min(battery_load, 95),
+            "battery_health": min(battery_health, 100),
+            "engine_temp": min(engine_temp, 120)
         }
-    
-    def calculate_health(self, data):
-        penalty = (
-            0.3 * data["engine_load"] +
-            0.2 * data["brake_load"] +
-            0.2 * data["gear_stress"] +
-            0.2 * data["battery_load"]
-        )
-        
-        if data["engine_temp"] > 90:
-            penalty += 0.5 * (data["engine_temp"] - 90)
-            
-        health = 100 - penalty
-        return max(0, round(health, 2))
-    
+
+    # -----------------------------
+    # Alert Logic
+    # -----------------------------
     def generate_alerts(self, data, health):
         alerts = []
-        
+
         if data["engine_temp"] > 110:
             alerts.append("Engine Overheating - Immediate inspection required")
-        
+
         if data["brake_load"] > 85:
             alerts.append("Brake Issue Detected - Service recommended")
-        
+
         if data["gear_stress"] > 80:
             alerts.append("Clutch Plate Issue - Possible gear slipping")
-        
+
         if data["battery_health"] < 60:
             alerts.append("Battery Degrading - Replacement advised")
-        
-        if health < 40:
-            alerts.append("Critical Vehicle Health - Urgent service required")
-        
+
+        if health <= 60:
+            alerts.append("Vehicle Health Dropping - Service Required")
+
         return alerts
 
-    # ✅ Added RUL logic
+    # -----------------------------
+    # RUL Calculation
+    # -----------------------------
     def calculate_rul(self, data, health):
         base_life_days = 365
 
-        # Overall remaining life based on health
         remaining_life = int((health / 100) * base_life_days)
 
-        # Engine RUL influenced by load + temp + health
         engine_factor = (100 - data["engine_load"]) / 100
         temp_penalty = max(0, data["engine_temp"] - 90) / 100
         engine_rul = int(base_life_days * engine_factor * (health / 100) * (1 - temp_penalty))
 
-        # Brake RUL influenced by brake load + health
         brake_factor = (100 - data["brake_load"]) / 100
         brake_rul = int(base_life_days * brake_factor * (health / 100))
 
-        # Gear RUL influenced by gear stress + health
         gear_factor = (100 - data["gear_stress"]) / 100
         gear_rul = int(base_life_days * gear_factor * (health / 100))
 
-        # Battery RUL influenced by battery health + battery load
         battery_factor = data["battery_health"] / 100
         battery_load_penalty = data["battery_load"] / 100
         battery_rul = int(base_life_days * battery_factor * (1 - battery_load_penalty))
@@ -91,15 +113,15 @@ def home():
 
 @app.get("/vehicle")
 def get_vehicle_data():
-    data = system.generate_sensor_data()
-    health = system.calculate_health(data)
+
+    health = system.update_health()
+    data = system.generate_sensor_data(health)
     alerts = system.generate_alerts(data, health)
 
-    # ✅ Added RUL calculation
     remaining_life, engine_rul, brake_rul, gear_rul, battery_rul = system.calculate_rul(data, health)
 
     return {
-        "vehicle_id": "Fortuner 0001",
+        "vehicle_id": system.vehicle_id,
         "vehicle_health": health,
         "remaining_life_days": remaining_life,
         "engine_rul_days": engine_rul,
